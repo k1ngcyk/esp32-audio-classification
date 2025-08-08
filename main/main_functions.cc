@@ -5,7 +5,6 @@
 
 #include "main_functions.h"
 #include "model.h"
-#include "output_handler.h"
 
 #include "esp_heap_caps.h"
 #include "esp_dsp.h"
@@ -16,6 +15,7 @@
 #include "esp_attr.h"
 
 #include "esp_partition.h"
+#include "esp_timer.h"
 
 static int16_t *audio_psram = nullptr;
 static size_t audio_len = 0; // bytes
@@ -316,10 +316,13 @@ void setup()
 void loop()
 {
   MicroPrintf("Starting calculation of mel spectrogram");
+  int64_t start = esp_timer_get_time();
   // Calculate mel spectrogram from audio data
   static int8_t mel_spectrogram[kNumFrames][kNumMelBins];
   AudioToMelSpecInt8(audio_psram, mel_spectrogram);
   MicroPrintf("Computed mel spectrogram: %dx%d\n", kNumFrames, kNumMelBins);
+  int64_t end = esp_timer_get_time();
+  MicroPrintf("Mel spectrogram time taken: %lld ms", (end - start) / 1000);
 
   // Verify input tensor dimensions match our mel spectrogram
   if (input->dims->data[1] != kNumFrames || input->dims->data[2] != kNumMelBins)
@@ -334,6 +337,7 @@ void loop()
   memcpy(input->data.int8, mel_spectrogram, input->bytes);
 
   MicroPrintf("Running inference\n");
+  start = esp_timer_get_time();
   // Run inference, and report any error
   TfLiteStatus invoke_status = interpreter->Invoke();
   if (invoke_status != kTfLiteOk)
@@ -341,6 +345,8 @@ void loop()
     MicroPrintf("Invoke failed: %d\n", invoke_status);
     return;
   }
+  end = esp_timer_get_time();
+  MicroPrintf("Inference time taken: %lld ms", (end - start) / 1000);
 
   // Obtain the quantized output from model's output tensor
   int8_t *scores = output->data.int8;
