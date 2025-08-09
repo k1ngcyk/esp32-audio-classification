@@ -18,9 +18,11 @@ limitations under the License.
 
 #include "main_functions.h"
 
-extern "C" void app_main(void) {
+extern "C" void app_main(void)
+{
   setup();
-  while (true) {
+  while (true)
+  {
     loop();
 
     // trigger one inference every 8 seconds

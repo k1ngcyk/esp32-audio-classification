@@ -23,8 +23,9 @@ static size_t audio_len = 0; // bytes
 
 static void load_audio_to_psram()
 {
-  FILE* f = fopen("/spiffs/audio_data.raw", "r");
-  if (f == NULL) {
+  FILE *f = fopen("/spiffs/audio_data.raw", "r");
+  if (f == NULL)
+  {
     MicroPrintf("Failed to open audio.raw");
     return;
   }
@@ -64,34 +65,38 @@ void setup()
 {
   MicroPrintf("Setup");
   esp_vfs_spiffs_conf_t conf = {
-    .base_path = "/spiffs",
-    .partition_label = "storage",
-    .max_files = 1,
-    .format_if_mount_failed = false
-  };
+      .base_path = "/spiffs",
+      .partition_label = "storage",
+      .max_files = 1,
+      .format_if_mount_failed = false};
   esp_err_t ret = esp_vfs_spiffs_register(&conf);
 
-  if (ret != ESP_OK) {
-      if (ret == ESP_FAIL) {
-          MicroPrintf("Failed to mount or format filesystem");
-      } else if (ret == ESP_ERR_NOT_FOUND) {
-          MicroPrintf("Failed to find SPIFFS partition");
-      } else {
-          MicroPrintf("Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
-      }
-      return;
+  if (ret != ESP_OK)
+  {
+    if (ret == ESP_FAIL)
+    {
+      MicroPrintf("Failed to mount or format filesystem");
+    }
+    else if (ret == ESP_ERR_NOT_FOUND)
+    {
+      MicroPrintf("Failed to find SPIFFS partition");
+    }
+    else
+    {
+      MicroPrintf("Failed to initialize SPIFFS (%s)", esp_err_to_name(ret));
+    }
+    return;
   }
   MicroPrintf("SPIFFS mounted");
   load_audio_to_psram();
   g_mel_ctx = mel_init(
-    /*sample_rate*/ 16000,
-    /*n_fft*/       512,
-    /*win_length*/  400,
-    /*hop_length*/  160,
-    /*n_mels*/      64,
-    /*fmin*/        125.0f,
-    /*fmax*/        7500.0f
-  );
+      /*sample_rate*/ 16000,
+      /*n_fft*/ 512,
+      /*win_length*/ 400,
+      /*hop_length*/ 160,
+      /*n_mels*/ 64,
+      /*fmin*/ 125.0f,
+      /*fmax*/ 7500.0f);
   if (g_mel_ctx == nullptr)
   {
     MicroPrintf("Failed to initialize mel context\n");
@@ -177,7 +182,7 @@ void loop()
   MicroPrintf("Starting calculation of mel spectrogram, index: %d", current_index);
   int64_t start = esp_timer_get_time();
   // Calculate mel spectrogram from audio data
-  static int8_t* mel_spectrogram = static_cast<int8_t *>(heap_caps_malloc(kNumFrames * kNumMelBins, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+  static int8_t *mel_spectrogram = static_cast<int8_t *>(heap_caps_malloc(kNumFrames * kNumMelBins, MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
   if (mel_spectrogram == nullptr)
   {
     MicroPrintf("Failed to allocate memory for mel spectrogram\n");
@@ -186,16 +191,6 @@ void loop()
   mel_compute_int8(g_mel_ctx, temp_audio, mel_spectrogram);
   int64_t end = esp_timer_get_time();
   MicroPrintf("Computed mel spectrogram: %dx%d\n", kNumFrames, kNumMelBins);
-  for (int i = 0; i < 10; ++i)
-  {
-    printf("%d, ", static_cast<int>(mel_spectrogram[i]));
-  }
-  printf(" ... ");
-  for (int i = 96*64 - 10; i < 96*64; ++i)
-  {
-    printf("%d, ", static_cast<int>(mel_spectrogram[i]));
-  }
-  printf("\n");
   MicroPrintf("Mel spectrogram time taken: %lld ms", (end - start) / 1000);
 
   // Verify input tensor dimensions match our mel spectrogram
