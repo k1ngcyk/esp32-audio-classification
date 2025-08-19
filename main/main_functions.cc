@@ -40,8 +40,7 @@ static void load_audio_to_psram()
 
 constexpr int kAudioLength = 15600; // 0.975 seconds at 16kHz
 
-// YAMNet model parameters
-constexpr int kNumClasses = 521; // YAMNet has 521 AudioSet classes
+constexpr int kNumClasses = 521;
 
 // Globals, used for compatibility with Arduino-style sketches.
 namespace
@@ -54,7 +53,7 @@ namespace
   const int kNumFrames = 96;
   const int kNumMelBins = 64;
 
-  constexpr int kTensorArenaSize = 7168 * 1024;
+  constexpr int kTensorArenaSize = 4096 * 1024;
   uint8_t *tensor_arena = nullptr;
 }
 
