@@ -190,7 +190,7 @@ void loop()
   }
   mel_compute_int8(g_mel_ctx, temp_audio, mel_spectrogram);
   int64_t end = esp_timer_get_time();
-  MicroPrintf("Computed mel spectrogram: %dx%d\n", kNumFrames, kNumMelBins);
+  MicroPrintf("Computed mel spectrogram: %dx%d", kNumFrames, kNumMelBins);
   MicroPrintf("Mel spectrogram time taken: %lld ms", (end - start) / 1000);
 
   // Verify input tensor dimensions match our mel spectrogram
@@ -202,10 +202,10 @@ void loop()
   }
 
   // Copy mel spectrogram to model input tensor
-  MicroPrintf("Copying mel spectrogram to model input tensor with size %d", input->bytes);
+  MicroPrintf("Copying mel spectrogram to model input tensor with size %d\n", input->bytes);
   memcpy(input->data.int8, mel_spectrogram, input->bytes);
 
-  MicroPrintf("Running inference\n");
+  MicroPrintf("Running inference");
   start = esp_timer_get_time();
   // Run inference, and report any error
   TfLiteStatus invoke_status = interpreter->Invoke();
@@ -220,32 +220,43 @@ void loop()
   // Obtain the quantized output from model's output tensor
   int8_t *scores = output->data.int8;
 
-  // Find the index of the highest score
-  int max_index = 0;
-  int8_t max_score = scores[0];
-
-  for (int i = 1; i < kNumClasses; i++)
+  // Find the top-10 scores and their class indices
+  struct ScoredClass
   {
-    if (scores[i] > max_score)
+    int index;
+    int8_t score;
+  };
+
+  ScoredClass topk[10] = {{-1, -128}, {-1, -128}, {-1, -128}, {-1, -128}, {-1, -128},
+                          {-1, -128}, {-1, -128}, {-1, -128}, {-1, -128}, {-1, -128}};
+
+  for (int i = 0; i < kNumClasses; i++)
+  {
+    int8_t s = scores[i];
+    if (s <= topk[9].score)
     {
-      max_score = scores[i];
-      max_index = i;
+      continue;
     }
+    int insert_pos = 0;
+    while (insert_pos < 10 && s <= topk[insert_pos].score)
+    {
+      insert_pos++;
+    }
+    for (int j = 8; j >= insert_pos; --j)
+    {
+      topk[j + 1] = topk[j];
+    }
+    topk[insert_pos] = {i, s};
   }
 
-  // Get the class name
-  const char *predicted_class;
-  if (max_index < kNumClasses)
+  for (int rank = 0; rank < 10; ++rank)
   {
-    predicted_class = kClassNames[max_index];
+    const int class_index = topk[rank].index;
+    const int8_t class_score = topk[rank].score;
+    const char *class_name = (class_index >= 0 && class_index < kNumClasses) ? kClassNames[class_index] : "Unknown class";
+    MicroPrintf("[RESULT] #%d: %s (index: %d, score: %d)",
+                rank + 1, class_name, class_index, static_cast<int>(class_score));
   }
-  else
-  {
-    predicted_class = "Unknown class";
-  }
-
-  MicroPrintf("Predicted class: %s (index: %d, score: %d)\n",
-              predicted_class, max_index, static_cast<int>(max_score));
   current_index++;
   if (current_index >= audio_len / kAudioLength)
   {
